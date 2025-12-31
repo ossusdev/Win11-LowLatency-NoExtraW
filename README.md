@@ -20,3 +20,116 @@ Run the provided revert script to restore defaults:
 ```powershell
 Copy & paste the revert script into PowerShell as Admin
 Reboot to apply
+
+
+# ==================================================
+# Windows 11 Low-Latency + 1% Low Improvement Script
+# Safe: Does NOT increase power consumption
+# Improves responsiveness, scheduler, and GPU frame pacing
+# Tested on modern AMD CPUs/GPUs
+# ==================================================
+
+Write-Host "Applying low-latency optimizations (no extra watts)..." -ForegroundColor Cyan
+
+# --------------------------------------------------
+# 1. Create System Restore Point
+# --------------------------------------------------
+Checkpoint-Computer -Description "LowLatency_NoExtraW" -RestorePointType MODIFY_SETTINGS
+
+# --------------------------------------------------
+# 2. Set Balanced power plan (efficiency-friendly)
+# --------------------------------------------------
+powercfg -setactive SCHEME_BALANCED
+
+# Adjust CPU boost ramp without forcing max clocks
+powercfg -setacvalueindex SCHEME_BALANCED SUB_PROCESSOR PROCTHROTTLEMIN 20
+powercfg -setacvalueindex SCHEME_BALANCED SUB_PROCESSOR PROCTHROTTLEMAX 100
+powercfg -setactive SCHEME_BALANCED
+
+# --------------------------------------------------
+# 3. Improve foreground scheduling (reduces latency)
+# --------------------------------------------------
+Set-ItemProperty `
+ -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" `
+ -Name "Win32PrioritySeparation" `
+ -Type DWord `
+ -Value 26 `
+ -Force
+
+# --------------------------------------------------
+# 4. Enable Game Mode
+# --------------------------------------------------
+Set-ItemProperty `
+ -Path "HKLM:\SOFTWARE\Microsoft\GameBar" `
+ -Name "AllowAutoGameMode" `
+ -Value 1 `
+ -Type DWord `
+ -Force
+
+# --------------------------------------------------
+# 5. Enable Hardware Accelerated GPU Scheduling
+# --------------------------------------------------
+Set-ItemProperty `
+ -Path "HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" `
+ -Name "HwSchMode" `
+ -Type DWord `
+ -Value 2 `
+ -Force
+
+# --------------------------------------------------
+# 6. Reduce UI animations & latency
+# --------------------------------------------------
+Set-ItemProperty `
+ -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" `
+ -Name "VisualFXSetting" `
+ -Value 2 `
+ -Type DWord `
+ -Force
+
+Set-ItemProperty `
+ -Path "HKCU:\Control Panel\Desktop" `
+ -Name "MenuShowDelay" `
+ -Value "0"
+
+Set-ItemProperty `
+ -Path "HKCU:\Control Panel\Desktop\WindowMetrics" `
+ -Name "MinAnimate" `
+ -Value "0"
+
+# --------------------------------------------------
+# 7. Disable safe background services that cause stutter
+# --------------------------------------------------
+$services = @(
+  "SysMain",     # memory/disk bursts
+  "DiagTrack"    # telemetry jitter
+)
+
+foreach ($svc in $services) {
+    $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
+    if ($s) {
+        Stop-Service $svc -Force -ErrorAction SilentlyContinue
+        Set-Service $svc -StartupType Disabled
+    }
+}
+
+# --------------------------------------------------
+# 8. Prevent background app wakeups
+# --------------------------------------------------
+Set-ItemProperty `
+ -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" `
+ -Name "GlobalUserDisabled" `
+ -Value 1 `
+ -Type DWord `
+ -Force
+
+# --------------------------------------------------
+# 9. Storage latency safeguard
+# --------------------------------------------------
+fsutil behavior set DisableDeleteNotify 0 | Out-Null
+
+# --------------------------------------------------
+# Done
+# --------------------------------------------------
+Write-Host "Low-latency optimizations applied." -ForegroundColor Green
+Write-Host "No extra power draw added." -ForegroundColor Green
+Write-Host "Reboot recommended." -ForegroundColor Yellow
