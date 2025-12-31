@@ -13,15 +13,6 @@
 
 ---
 
-## Revert Changes
-
-Run the provided revert script to restore defaults:
-
-```powershell
-Copy & paste the revert script into PowerShell as Admin
-Reboot to apply
-
-
 # ==================================================
 # Windows 11 Low-Latency + 1% Low Improvement Script
 # Safe: Does NOT increase power consumption
@@ -57,14 +48,20 @@ Set-ItemProperty `
  -Force
 
 # --------------------------------------------------
-# 4. Enable Game Mode
+# 4. Enable Game Mode (only if the key exists)
 # --------------------------------------------------
-Set-ItemProperty `
- -Path "HKLM:\SOFTWARE\Microsoft\GameBar" `
- -Name "AllowAutoGameMode" `
- -Value 1 `
- -Type DWord `
- -Force
+$gameBarKey = "HKLM:\SOFTWARE\Microsoft\GameBar"
+if (Test-Path $gameBarKey) {
+    Set-ItemProperty `
+        -Path $gameBarKey `
+        -Name "AllowAutoGameMode" `
+        -Value 1 `
+        -Type DWord `
+        -Force
+    Write-Host "Game Mode enabled via registry." -ForegroundColor Cyan
+} else {
+    Write-Host "GameBar registry key not found. Skipping Game Mode tweak." -ForegroundColor Yellow
+}
 
 # --------------------------------------------------
 # 5. Enable Hardware Accelerated GPU Scheduling
@@ -133,3 +130,4 @@ fsutil behavior set DisableDeleteNotify 0 | Out-Null
 Write-Host "Low-latency optimizations applied." -ForegroundColor Green
 Write-Host "No extra power draw added." -ForegroundColor Green
 Write-Host "Reboot recommended." -ForegroundColor Yellow
+
